@@ -98,7 +98,7 @@ senmv.out$pval  ## Note that this is a one-tailed test of positive treatment eff
 
 
 # Sensitivity optim function
-robust.fitfunc <- function(matches, BM) {
+robust.fitfunc <- function(matches, BM, gamma=2) {
   
   # robust.fitfunc requires that the last column of the BM matrix contain the outcomes
   # hence, it is VERY important not to run standard pval balance genetic matching
@@ -111,13 +111,29 @@ robust.fitfunc <- function(matches, BM) {
   ymat <- make_ymat(matches, outcomes)
 
   # Compute sensitivity
-  pval <- senmv(y=ymat, gamma=1.5, inner=0, trim=Inf, lambda = 1/2, TonT=TRUE)$pval
+  pval <- senmv(y=ymat, gamma=gamma, inner=0, trim=Inf, lambda = 1/2, TonT=TRUE)$pval
   
   return(pval)
 }
 
-# Demonstration ties=FALSE
+# Demonstration of optimization function
 BM <- cbind(BalanceMat, re78)
 df <- data.frame(trt = mgen2$index.treated, ctrl = mgen2$index.control)
 robust.fitfunc(df, BM)           # With matches from Match()
 robust.fitfunc(gen2$matches, BM) # With matches from GenMatch()
+
+# Genetic Optimization
+genout3 <- GenMatch(Tr=Tr, X=X, BalanceMat=BM, pop.size=100,
+                    print=1, ties=TRUE, wait.generations = 5, 
+                    fit.func = robust.fitfunc)
+
+mout3 <- Match(Y=Y, Tr=treat, X=X, ties=TRUE, Weight.matrix=genout3)
+summary(mout3)
+
+robust.fitfunc(genout3$matches, BM, gamma=2)
+robust.fitfunc(cbind(mout3$index.treated, mout3$index.control), BM, gamma=2)
+
+MatchBalance(Tr ~ age + I(age^2)+ educ + I(educ^2) + black +
+                   hisp + married + nodegr + re74 + I(re74^2) + re75 + I(re75^2) +
+                   u74 + u75 + I(re74*re75) + I(age*nodegr) + I(educ*re74) + I(educ*75),
+                   data=lalonde, match.out = mout3, print.level=1)
