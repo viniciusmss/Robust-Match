@@ -55,7 +55,7 @@ print(sprintf("%d / %d are different matches", m, n))
 
 print("yes :)")
 
-make_ymat<-function(y, matches){
+make_ymat<-function(matches, y){
   
   # Get indices of treated and control units
   treated <- unique(matches[, 1]) # Remove repeated indices
@@ -93,4 +93,31 @@ make_ymat<-function(y, matches){
 ymat <- make_ymat(re78, matches)
 
 library(sensitivitymv)
-senmv(y=ymat, gamma=1.5, inner=0, trim=Inf, lambda = 1/2, TonT=TRUE)
+senmv.out <- senmv(y=ymat, gamma=1.5, inner=0, trim=Inf, lambda = 1/2, TonT=TRUE)
+senmv.out$pval  ## Note that this is a one-tailed test of positive treatment effect
+
+
+# Sensitivity optim function
+robust.fitfunc <- function(matches, BM) {
+  
+  # robust.fitfunc requires that the last column of the BM matrix contain the outcomes
+  # hence, it is VERY important not to run standard pval balance genetic matching
+  # with the same BM!
+  
+  # Get outcomes
+  outcomes <- BM[ , ncol(BM)]
+  
+  # Construct matrix of outcomes
+  ymat <- make_ymat(matches, outcomes)
+
+  # Compute sensitivity
+  pval <- senmv(y=ymat, gamma=1.5, inner=0, trim=Inf, lambda = 1/2, TonT=TRUE)$pval
+  
+  return(pval)
+}
+
+# Demonstration ties=FALSE
+BM <- cbind(BalanceMat, re78)
+df <- data.frame(trt = mgen2$index.treated, ctrl = mgen2$index.control)
+robust.fitfunc(df, BM)           # With matches from Match()
+robust.fitfunc(gen2$matches, BM) # With matches from GenMatch()
