@@ -2,6 +2,7 @@
 library(rbounds)
 library(rgenoud)
 library(Matching)
+library(sensitivitymv)
 library(foreign)
 library(segmented)
 library(MatchingFrontier)
@@ -62,6 +63,10 @@ print(sprintf("%d / %d are different matches", m, n))
 
 print("yes :)")
 
+####################################
+# WITH ROBUSTNESS TO UNOBSERVABLES #
+####################################
+
 make_ymat<-function(matches, y){
   
   # Get indices of treated and control units
@@ -99,7 +104,6 @@ make_ymat<-function(matches, y){
 
 ymat <- make_ymat(gen2$matches, re78)
 
-library(sensitivitymv)
 senmv.out <- senmv(y=ymat, gamma=1.5, inner=0, trim=Inf, lambda = 1/2, TonT=TRUE)
 senmv.out$pval  ## Note that this is a one-tailed test of positive treatment effect
 
@@ -150,7 +154,7 @@ MatchBalance(Tr ~ age + I(age^2)+ education + I(education^2) + black +
 # WITH ROBUSTNESS TO MISPECIFICATION #
 ######################################
 
-getCutpoint <- function(dataset, base.form, cov, median = TRUE){
+getCutpoint_ <- function(dataset, base.form, cov, median = TRUE){
     if(!median){
       mod.form <- as.formula(paste(as.character(base.form[2]),
                                    as.character(base.form[1]),
@@ -178,7 +182,6 @@ getCutpoint <- function(dataset, base.form, cov, median = TRUE){
       ### CHANGE : When the median is zero, this leads the lm.fit() in 
       # modelDependence() to break
       ###
-      
       if (cutpoint == 0) cutpoint <- 0.001
     }
     return(cutpoint)
@@ -189,8 +192,8 @@ trim <- function(x){
 }
 
 modelDependence_ <- 
-  function(dataset, treatment, base.form, verbose = TRUE, seed = 1, cutpoints = NA, median = TRUE){
-    set.seed(1)
+  function(dataset, treatment, base.form, verbose = TRUE, seed = 12345, cutpoints = NA, median = TRUE){
+    set.seed(seed)
     
     base.form <- as.formula(base.form)
     
@@ -259,11 +262,8 @@ modelDependence_ <-
 
 
 base.form <- as.formula('re78 ~ treat + age + education + black + hispanic + married + nodegree + re74 + re75')
-md <- modelDependence_(dataset = lalonde, treatment = 'treat', verbose=TRUE, base.form = base.form, median=TRUE)
+md <- modelDependence_(dataset = lalonde.cps3, treatment = 'treat', verbose=TRUE, base.form = base.form, median=TRUE)
 print(md)
-
-
-
 
 robust.fitfunc.plus <- function(matches, BM, gamma=2) {
   ### Requirements
@@ -292,24 +292,26 @@ robust.fitfunc.plus <- function(matches, BM, gamma=2) {
   
   # Compute robustness
   df <- as.data.frame(rbind(BM[matches[,1],], BM[matches[,2],]), stringsAsFactors = FALSE)
-  md <- modelDependence(dataset = df, treatment = 'treat', 
-                        verbose=FALSE, base.form = base.form)
+  md <- modelDependence_(dataset = df, treatment = 'treat', 
+                        verbose=FALSE, base.form = base.form, median=TRUE)
   
   return(c(pval, md))
 }
 
 # Genetic Optimization
-genout3 <- GenMatch(Tr=lalonde.cps3$treat, X=lalonde.cps3, pop.size=100,
+genout3 <- GenMatch(Tr=lalonde.cps3$treat, X=lalonde.cps3[,-which(names(lalonde.cps3) == "re78")], 
+                    BalanceMatrix = lalonde.cps3, pop.size=100,
                     print=1, ties=TRUE, wait.generations = 5, 
                     fit.func = robust.fitfunc.plus)
 
-mout3 <- Match(Y=Y, Tr=treat, X=X, ties=TRUE, Weight.matrix=genout3)
+mout3 <- Match(Y=lalonde.cps3$re78, Tr=lalonde.cps3$treat, X=lalonde.cps3[,-which(names(lalonde.cps3) == "re78")],
+               ties=TRUE, Weight.matrix=genout3)
 summary(mout3)
 
-robust.fitfunc(genout3$matches, BM, gamma=2)
-robust.fitfunc(cbind(mout3$index.treated, mout3$index.control), BM, gamma=2)
+robust.fitfunc.plus(genout3$matches, lalonde.cps3, gamma=2)
+robust.fitfunc.plus(cbind(mout3$index.treated, mout3$index.control), lalonde.cps3, gamma=2)
 
-MatchBalance(Tr ~ age + I(age^2)+ education + I(education^2) + black +
+MatchBalance(treat ~ age + I(age^2)+ education + I(education^2) + black +
                hispanic + married + nodegree + re74 + I(re74^2) + re75 + I(re75^2) +
                I(re74*re75) + I(age*nodegree) + I(education*re74) + I(education*re75),
-             data=lalonde, match.out = mout3, print.level=1)
+             data=lalonde.cps3, match.out = mout3, print.level=1)
