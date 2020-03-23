@@ -216,3 +216,51 @@ robust.fitfunc.plus <- function(matches, BM, gamma=2) {
   
   return(c(pval, md))
 }
+
+robust.fitfunc.wbal <- function(matches, BM, gamma=2) {
+  ### Requirements
+  # treatment column should be named 'treat'
+  # Balance matrix should have the last column as the outcome
+  # Balance matrix should also contain the treatment vector
+  # Balance matrix should have appropriate column names
+  
+  # Get auxiliary objects
+  outcomes <- BM[ , ncol(BM)]
+  covars <- BM[ , -ncol(BM)]
+  vars <- colnames(BM) 
+  nvars <- length(vars)
+  if (is.null(vars)) stop("Balance Matrix should have appropriate column names.") 
+  base.form <- paste(
+    vars[nvars],
+    "~",
+    paste(vars[-nvars], collapse="+")
+  )
+  
+  # Construct matrix of outcomes
+  ymat <- make_ymat(matches, outcomes)
+  
+  # Compute sensitivity
+  pval <- senmv(y=ymat, gamma=gamma, inner=0, trim=Inf, lambda = 1/2, TonT=TRUE)$pval
+  
+  # Compute robustness
+  df <- as.data.frame(rbind(BM[matches[,1],], BM[matches[,2],]), stringsAsFactors = FALSE)
+  md <- modelDependence_(dataset = df, treatment = 'treat', 
+                         verbose=FALSE, base.form = base.form, median=TRUE)
+  
+  # If robustness p-value falls under significance threshold, 
+  # coerce it to zero to focus on robustness to model mispecification
+  if (pval < 0.05) pval <- 0
+  
+  # Compute balance pval
+  
+  # MatchBalance formula
+  bal.form <- as.formula(paste("treat ~",
+                               paste(vars[vars != "treat"], 
+                                     collapse="+")))
+  # Get the matched dataset
+  matcheddf <- covars[c(matches[,1], matches[,2]),]
+  mbout <- MatchBalance(bal.form, data=matcheddf)
+  min.pval <- mbout$AMsmallest.p.value
+  
+  return(c(pval, md, min.pval))
+}
