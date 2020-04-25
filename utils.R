@@ -228,6 +228,7 @@ robust.fitfunc.wbal <- function(matches, BM, gamma=2) {
   outcomes <- BM[ , ncol(BM)]
   covars <- BM[ , -ncol(BM)]
   vars <- colnames(BM) 
+  covar_names <- colnames(covars)
   nvars <- length(vars)
   if (is.null(vars)) stop("Balance Matrix should have appropriate column names.") 
   base.form <- paste(
@@ -255,12 +256,12 @@ robust.fitfunc.wbal <- function(matches, BM, gamma=2) {
   
   # MatchBalance formula
   bal.form <- as.formula(paste("treat ~",
-                               paste(vars[vars != "treat"], 
+                               paste(covar_names[covar_names != "treat"], 
                                      collapse="+")))
   # Get the matched dataset
   matcheddf <- covars[c(matches[,1], matches[,2]),]
-  mbout <- MatchBalance(bal.form, data=matcheddf)
-  min.pval <- mbout$AMsmallest.p.value
+  mbout <- MatchBalance(bal.form, data=matcheddf, print.level = 0)
+  min.pval <- mbout$BMsmallest.p.value
   
-  return(c(pval, md, min.pval))
+  return(c(pval, 1-min.pval, md))
 }
