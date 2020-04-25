@@ -1,5 +1,5 @@
-#based on oct.genmatch.pscore
-# orignally from
+# based on oct.genmatch.pscore
+# originally from the replication files for Diamond & Sekhon
 # lapo:/home/adiamond/midwest/DW/forJas/oct.genmatch.pscore
 
 set.seed(2423045)
@@ -170,7 +170,7 @@ robust.fitfunc.wbal(GM.out$matches, lalonde.cps1)
 # 0.1796675  0.4120000 50.3158348
 # Rosenbaum's Gamma = 2 p.val = 0.179
 # 1 - balance p.val on raw covar = 0.412 ===> balance p.val = 0.59
-# Athey & Imbens model dependence std = 0.50
+# Athey & Imbens model dependence std = 50
 
 y_mat <- make_ymat(GM.out$matches, lalonde.cps1$re78)
 for (i in seq(1, 2, 0.1)) {
