@@ -171,3 +171,14 @@ robust.fitfunc.wbal(GM.out$matches, lalonde.cps1)
 # Rosenbaum's Gamma = 2 p.val = 0.179
 # 1 - balance p.val on raw covar = 0.412 ===> balance p.val = 0.59
 # Athey & Imbens model dependence std = 0.50
+
+y_mat <- make_ymat(GM.out$matches, lalonde.cps1$re78)
+for (i in seq(1, 2, 0.1)) {
+  p <- robust.fitfunc(gamma=i, GM.out$matches, lalonde.cps1)
+  cat("gamma: ", i, "\t p-value:", p, "\n")
+}
+# gamma:  1.5 	 p-value: 0.0177421 
+# gamma:  1.6 	 p-value: 0.03334341 
+# gamma:  1.7 	 p-value: 0.05673043 
+# gamma:  1.8 	 p-value: 0.08890003 
+
